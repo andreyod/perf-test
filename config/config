@@ -1,0 +1,8 @@
+{
+  "setup": {
+    "test": "create",
+    "parallelism": 100,
+    "object_size_KB": 1000,
+    "object_count": 1000
+  }
+}
