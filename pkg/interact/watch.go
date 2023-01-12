@@ -8,13 +8,14 @@ import (
 	"sync"
 	"time"
 
+	"perf-test/pkg/config"
+	"perf-test/pkg/metrics"
+
 	log "github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"perf-test/pkg/config"
-	"perf-test/pkg/metrics"
 )
 
 func Watch(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset) error {
@@ -24,11 +25,11 @@ func Watch(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset)
 	// start watching
 	watchObjects(ctx, cfg, wg, times, client)
 
-//	wg.Add(1)
-//	go func() {
-//		defer wg.Done()
-//		go metrics.RegisterWatchMetrics()
-//	}()
+	//	wg.Add(1)
+	//	go func() {
+	//		defer wg.Done()
+	//		go metrics.RegisterWatchMetrics()
+	//	}()
 	go metrics.RegisterWatchMetrics()
 
 	// start the threads that will generate events
@@ -62,7 +63,7 @@ func Watch(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset)
 	}
 
 	for i := 0; i < cfg.ObjectCount; i++ {
-		name := "size-test-map" + strconv.Itoa(i)
+		name := cfg.NamePrefix + strconv.Itoa(i)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -207,4 +208,3 @@ func watch(ctx context.Context, cfg *config.Setup, times map[string][]time.Time,
 // 	}
 // 	return err
 // }
-
