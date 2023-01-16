@@ -15,6 +15,18 @@ import (
 )
 
 func Create(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset) error {
+	namespace := "test"
+	ns := &apiv1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	}
+	_, err := client.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		log.Errorf("failed to create test namespace: %v", err)
+		return err
+	}
+
 	data := make([]byte, cfg.ObjectSizeKB*1000)
 	cm := apiv1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -22,7 +34,8 @@ func Create(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: cfg.NamePrefix,
+			Name:      cfg.NamePrefix,
+			Namespace: namespace,
 		},
 		BinaryData: map[string][]byte{"data": data},
 	}
@@ -43,11 +56,11 @@ func Create(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset
 					if !ok {
 						return
 					}
-					_, err := client.CoreV1().ConfigMaps(metav1.NamespaceDefault).Create(ctx, &obj, metav1.CreateOptions{})
+					_, err := client.CoreV1().ConfigMaps(namespace).Create(ctx, &obj, metav1.CreateOptions{})
 					if err != nil {
 						log.Errorf("create config map: %v", err)
 						if apierrors.IsAlreadyExists(err) {
-							client.CoreV1().ConfigMaps(metav1.NamespaceDefault).Delete(ctx, obj.Name, metav1.DeleteOptions{})
+							client.CoreV1().ConfigMaps(namespace).Delete(ctx, obj.Name, metav1.DeleteOptions{})
 						}
 					}
 				}

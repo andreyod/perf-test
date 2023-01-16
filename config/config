@@ -4,6 +4,6 @@
     "parallelism": 100,
     "object_size_KB": 1000,
     "object_count": 1000,
-    "object_name_prefix": "test"
+    "object_name_prefix": "test-"
   }
 }

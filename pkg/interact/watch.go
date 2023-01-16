@@ -19,11 +19,12 @@ import (
 )
 
 func Watch(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset) error {
+	namespace := "test"
 	wg := &sync.WaitGroup{}
 	// times map holds times before and after update request send
 	times := make(map[string][]time.Time)
 	// start watching
-	watchObjects(ctx, cfg, wg, times, client)
+	watchObjects(ctx, cfg, wg, times, client, namespace)
 
 	//	wg.Add(1)
 	//	go func() {
@@ -50,7 +51,7 @@ func Watch(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset)
 					before := time.Now()
 					//log.Infof("will run update for %s at: %v", name, before)
 					//TODO map name-time
-					_, err := client.CoreV1().ConfigMaps(metav1.NamespaceDefault).Patch(ctx, name, types.MergePatchType, []byte(fmt.Sprintf(`{"metadata":{"labels":{"updated":"%d"}}}`, before.Nanosecond())), metav1.PatchOptions{})
+					_, err := client.CoreV1().ConfigMaps(namespace).Patch(ctx, name, types.MergePatchType, []byte(fmt.Sprintf(`{"metadata":{"labels":{"updated":"%d"}}}`, before.Nanosecond())), metav1.PatchOptions{})
 					if err != nil {
 						log.Errorf("update config map failed: %v", err)
 					}
@@ -76,11 +77,11 @@ func Watch(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset)
 	return nil
 }
 
-func watchObjects(ctx context.Context, cfg *config.Setup, wg *sync.WaitGroup, times map[string][]time.Time, client *kubernetes.Clientset) {
+func watchObjects(ctx context.Context, cfg *config.Setup, wg *sync.WaitGroup, times map[string][]time.Time, client *kubernetes.Clientset, ns string) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := watch(ctx, cfg, times, client); err != nil && !errors.Is(err, context.DeadlineExceeded) {
+		if err := watch(ctx, cfg, times, client, ns); err != nil && !errors.Is(err, context.DeadlineExceeded) {
 			log.WithError(err).Error("failed to interact with the API server")
 		}
 	}()
@@ -98,8 +99,8 @@ func watchObjects(ctx context.Context, cfg *config.Setup, wg *sync.WaitGroup, ti
 //	}
 //}
 
-func watch(ctx context.Context, cfg *config.Setup, times map[string][]time.Time, client *kubernetes.Clientset) error {
-	watcher, err := client.CoreV1().ConfigMaps(metav1.NamespaceDefault).Watch(ctx, metav1.ListOptions{})
+func watch(ctx context.Context, cfg *config.Setup, times map[string][]time.Time, client *kubernetes.Clientset, ns string) error {
+	watcher, err := client.CoreV1().ConfigMaps(ns).Watch(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
