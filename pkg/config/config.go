@@ -16,4 +16,6 @@ type Setup struct {
 	NamePrefix string `json:"object_name_prefix"`
 	// Parallelism determines how many parallel client connections to use
 	Parallelism int `json:"parallelism,omitempty"`
+	// Delay seconds before object update
+	UpdateDelay int `json:"update_delay_seconds"`
 }

@@ -65,6 +65,11 @@ func Watch(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset)
 
 	for i := 0; i < cfg.ObjectCount; i++ {
 		name := cfg.NamePrefix + strconv.Itoa(i)
+		log.Info(name)
+		if cfg.UpdateDelay > 0 {
+			log.Info("sleep")
+			time.Sleep(time.Duration(cfg.UpdateDelay) * time.Second)
+		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
