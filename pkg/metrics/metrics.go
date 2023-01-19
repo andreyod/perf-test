@@ -17,6 +17,5 @@ var (
 func RegisterWatchMetrics() {
 	http.Handle("/metrics", promhttp.Handler())
 	prometheus.MustRegister(TimePoints)
-	panic(http.ListenAndServe(":8080", nil))
+	panic(http.ListenAndServe(":8088", nil))
 }
-

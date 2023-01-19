@@ -22,7 +22,7 @@ spec:
       - image: ubuntu/nginx:1.18-20.04_beta
         name: ubuntu
         ports:
-        - containerPort: 8080
+        - containerPort: 8088
           name: http
           protocol: TCP
         command: ["/bin/sleep", "3650d"]

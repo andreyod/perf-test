@@ -1,80 +1,83 @@
 package main
 
 import (
-        "context"
-        "encoding/json"
-        "io/ioutil"
-        "os"
-        "os/signal"
-        "syscall"
+	"context"
+	"encoding/json"
+	"io/ioutil"
+	"os"
+	"os/signal"
+	"syscall"
 
-        log "github.com/sirupsen/logrus"
-        "k8s.io/client-go/kubernetes"
+	"perf-test/pkg/config"
+	"perf-test/pkg/interact"
+
+	log "github.com/sirupsen/logrus"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-        "perf-test/pkg/config"
-        "perf-test/pkg/interact"
 )
 
 // retrieve the Kubernetes cluster client from outside of the cluster
 func getKubernetesClient() *kubernetes.Clientset {
-        // construct the path to kubeconfig
-        // kubeConfigPath := os.Getenv("HOME") + "/temp/.kubeconfig"
+	// construct the path to kubeconfig
+	// kubeConfigPath := os.Getenv("HOME") + "/temp/.kubeconfig"
 
-        // create the config from the path
-        // config, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
-        // if err != nil {
-        //         log.Fatalf("getClusterConfig: %v", err)
-        // }
+	// create the config from the path
+	// config, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
+	// if err != nil {
+	//         log.Fatalf("getClusterConfig: %v", err)
+	// }
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(err.Error())
 	}
+	// config.QPS = 300
+	// config.Burst = 300
 
-        client, err := kubernetes.NewForConfig(config)
-        if err != nil {
-                log.Fatalf("getClusterConfig: %v", err)
-        }
-        return client
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Fatalf("getClusterConfig: %v", err)
+	}
+	return client
 }
 
 func readConfigFile() (config.Config, error) {
-        var cfg config.Config
-        rundir, err := os.Getwd()
-        if err != nil {
-                return cfg, err
-        }
-        confFile := rundir + "/config/config"
+	var cfg config.Config
+	rundir, err := os.Getwd()
+	if err != nil {
+		return cfg, err
+	}
+	confFile := rundir + "/config/config"
 
-        raw, err := ioutil.ReadFile(confFile)
-        if err != nil {
-                return cfg, err
-        }
+	raw, err := ioutil.ReadFile(confFile)
+	if err != nil {
+		return cfg, err
+	}
 
-        if err := json.Unmarshal(raw, &cfg); err != nil {
-                return cfg, err
-        }
-        return cfg, nil
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
 }
 
 // main code path
 func main() {
-        // read config
-        cfg, err := readConfigFile()
-        if err != nil {
-                log.WithError(err).Fatal("could not read config file")
-        }
-        if cfg.Setup == nil {
-                log.Fatal("no setup configured")
-        }
+	// read config
+	cfg, err := readConfigFile()
+	if err != nil {
+		log.WithError(err).Fatal("could not read config file")
+	}
+	if cfg.Setup == nil {
+		log.Fatal("no setup configured")
+	}
 
-        // get the Kubernetes client for connectivity
-        client := getKubernetesClient()
+	// get the Kubernetes client for connectivity
+	client := getKubernetesClient()
 
-        ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-        defer func() {
-                cancel()
-        }()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer func() {
+		cancel()
+	}()
 
 	switch cfg.Setup.Test {
 	case "watch":
