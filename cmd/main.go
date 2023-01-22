@@ -32,7 +32,7 @@ func getKubernetesClient() *kubernetes.Clientset {
 		panic(err.Error())
 	}
 	// config.QPS = 300
-	// config.Burst = 300
+	// config.Burst = 400
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
