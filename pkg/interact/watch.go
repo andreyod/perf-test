@@ -21,16 +21,14 @@ import (
 func Watch(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset) error {
 	namespace := "test"
 	wg := &sync.WaitGroup{}
+
+	mux := &sync.RWMutex{}
+
 	// times map holds times before and after update request send
 	times := make(map[string][]time.Time)
 	// start watching
-	watchObjects(ctx, cfg, wg, times, client, namespace)
+	watchObjects(ctx, cfg, wg, times, client, namespace, mux)
 
-	//	wg.Add(1)
-	//	go func() {
-	//		defer wg.Done()
-	//		go metrics.RegisterWatchMetrics()
-	//	}()
 	go metrics.RegisterWatchMetrics()
 
 	// start the threads that will generate events
@@ -50,13 +48,14 @@ func Watch(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset)
 					}
 					before := time.Now()
 					//log.Infof("will run update for %s at: %v", name, before)
-					//TODO map name-time
 					_, err := client.CoreV1().ConfigMaps(namespace).Patch(ctx, name, types.MergePatchType, []byte(fmt.Sprintf(`{"metadata":{"labels":{"updated":"%d"}}}`, before.Nanosecond())), metav1.PatchOptions{})
 					if err != nil {
 						log.Errorf("update config map failed: %v", err)
 					}
 					after := time.Now()
+					mux.Lock()
 					times[name] = []time.Time{before, after}
+					mux.Unlock()
 					//log.Infof("update times: %v", times[name])
 				}
 			}
@@ -77,16 +76,16 @@ func Watch(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset)
 		}
 	}
 	close(operations)
-	time.Sleep(10 * time.Minute)
+	//time.Sleep(10 * time.Minute)
 	wg.Wait()
 	return nil
 }
 
-func watchObjects(ctx context.Context, cfg *config.Setup, wg *sync.WaitGroup, times map[string][]time.Time, client *kubernetes.Clientset, ns string) {
+func watchObjects(ctx context.Context, cfg *config.Setup, wg *sync.WaitGroup, times map[string][]time.Time, client *kubernetes.Clientset, ns string, mux *sync.RWMutex) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := watch(ctx, cfg, times, client, ns); err != nil && !errors.Is(err, context.DeadlineExceeded) {
+		if err := watch(ctx, cfg, times, client, ns, mux); err != nil && !errors.Is(err, context.DeadlineExceeded) {
 			log.WithError(err).Error("failed to interact with the API server")
 		}
 	}()
@@ -104,7 +103,7 @@ func watchObjects(ctx context.Context, cfg *config.Setup, wg *sync.WaitGroup, ti
 //	}
 //}
 
-func watch(ctx context.Context, cfg *config.Setup, times map[string][]time.Time, client *kubernetes.Clientset, ns string) error {
+func watch(ctx context.Context, cfg *config.Setup, times map[string][]time.Time, client *kubernetes.Clientset, ns string, mux *sync.RWMutex) error {
 	watcher, err := client.CoreV1().ConfigMaps(ns).Watch(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -138,6 +137,8 @@ func watch(ctx context.Context, cfg *config.Setup, times map[string][]time.Time,
 			if !ok {
 				return fmt.Errorf("expected a metav1.Object in watch, got %T", event.Object)
 			}
+
+			mux.RLock()
 			if val, ok := times[obj.GetName()]; ok {
 				metrics.TimePoints.WithLabelValues("request-sending").Set(float64(val[0].UnixMilli()))
 				metrics.TimePoints.WithLabelValues("request-returned").Set(float64(val[1].UnixMilli()))
@@ -145,6 +146,7 @@ func watch(ctx context.Context, cfg *config.Setup, times map[string][]time.Time,
 			} else {
 				log.Errorf("failed to get times for: %s", obj.GetName())
 			}
+			mux.RUnlock()
 
 			counter++
 			if counter == cfg.ObjectCount {
