@@ -7,7 +7,9 @@
 # "object_count": 200,
 # "object_name_prefix": "test-",
 # "update_delay_seconds": 1
-
+#
+# uncomment QPS/Burst in cmd/main.go
+#
 
 # create 200 of 256K
 cat config/config
@@ -29,7 +31,7 @@ go run cmd/main.go
 sleep 1m
 
 # update 2000
-sed -i 's/"parallelism": 10/"parallelism": 1/g' config/config
+#sed -i 's/"parallelism": 10/"parallelism": 1/g' config/config
 sed -i 's/"test": "create"/"test": "watch"/g' config/config
 sed -i 's/"update_delay_seconds": 1/"update_delay_seconds": 0/g' config/config
 cat config/config
@@ -37,7 +39,7 @@ go run cmd/main.go
 sleep 1m
 
 # update 200 with delay 1
-sed -i 's/"parallelism": 1/"parallelism": 10/g' config/config
+#sed -i 's/"parallelism": 1/"parallelism": 10/g' config/config
 sed -i 's/"object_count": 2000/"object_count": 200/g' config/config
 sed -i 's/"update_delay_seconds": 0/"update_delay_seconds": 1/g' config/config
 cat config/config
