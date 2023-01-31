@@ -28,6 +28,8 @@ func Watch(ctx context.Context, cfg *config.Setup, client *kubernetes.Clientset)
 	times := make(map[string][]time.Time)
 	// start watching
 	watchObjects(ctx, cfg, wg, times, client, namespace, mux)
+	// wait for watcher to be ready
+	time.Sleep(1 * time.Minute)
 
 	go metrics.RegisterWatchMetrics()
 
@@ -122,19 +124,7 @@ func watch(ctx context.Context, cfg *config.Setup, times map[string][]time.Time,
 				return fmt.Errorf("expected a metav1.Object in watch, got %T", event.Object)
 			}
 
-			mux.RLock()
-			val, ok := times[obj.GetName()]
-			mux.RUnlock()
-			if !ok {
-				//we got the event before (request returned)/(map values set)
-				metrics.TimePoints.WithLabelValues("request-sending").Set(0)
-				metrics.TimePoints.WithLabelValues("request-returned").Set(0)
-				metrics.TimePoints.WithLabelValues("event-recieved").Set(0)
-			} else {
-				metrics.TimePoints.WithLabelValues("request-sending").Set(float64(val[0].UnixMilli()))
-				metrics.TimePoints.WithLabelValues("request-returned").Set(float64(val[1].UnixMilli()))
-				metrics.TimePoints.WithLabelValues("event-recieved").Set(float64(recieved.UnixMilli()))
-			}
+			go setMetrics(cfg, obj.GetName(), times, mux, recieved.UnixMilli())
 
 			counter++
 			if counter == cfg.ObjectCount {
@@ -142,5 +132,23 @@ func watch(ctx context.Context, cfg *config.Setup, times map[string][]time.Time,
 				return nil
 			}
 		}
+	}
+}
+
+func setMetrics(cfg *config.Setup, name string, times map[string][]time.Time, mux *sync.RWMutex, recieved int64) {
+	mux.RLock()
+	val, ok := times[name]
+	mux.RUnlock()
+	if !ok {
+		//we got the event before (request returned)/(map values set)
+		metrics.TimePoints.WithLabelValues("request-sending").Set(0)
+		metrics.TimePoints.WithLabelValues("request-returned").Set(0)
+		metrics.TimePoints.WithLabelValues("event-recieved").Set(0)
+		log.Info("Event received before request return. Set to 0 latency")
+	} else {
+		metrics.TimePoints.WithLabelValues("request-sending").Set(float64(val[0].UnixMilli()))
+		metrics.TimePoints.WithLabelValues("request-returned").Set(float64(val[1].UnixMilli()))
+		metrics.TimePoints.WithLabelValues("event-recieved").Set(float64(recieved))
+		log.Infof("name: %s ; latency-ms: %d", name, recieved-val[1].UnixMilli())
 	}
 }
