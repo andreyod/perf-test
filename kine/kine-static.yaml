@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    component: kine
+    tier: control-plane
+  name: kine
+  namespace: kube-system
+spec:
+  containers:
+  - image: rancher/kine:v0.9.8
+    imagePullPolicy: IfNotPresent
+    name: kine
+    command: ["kine", "--listen-address", "0.0.0.0:23791", "--endpoint", "mysql://root:password@tcp(127.0.0.1:3306)/kine", "--ca-file", "", "--cert-file", "", "--key-file", "", "--debug"]
+  hostNetwork: true
+  priorityClassName: system-node-critical
+  securityContext:
+    seLinuxOptions:
+      type: spc_t
+    seccompProfile:
+      type: RuntimeDefault
+status: {}
